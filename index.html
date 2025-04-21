@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        // Function to allow dragging of files
+        function allowDrag(ev) {
+            ev.dataTransfer.setData("fileId", ev.target.dataset.fileId);
+        }
+
+        // Function to allow dropping into a folder
+        function allowDrop(ev) {
+            ev.preventDefault(); // Prevent the default behavior (open as link)
+        }
+
+        // Function to handle file drop into a folder
+        function handleDrop(ev, folderPath) {
+            ev.preventDefault();
+
+            // Get the file ID from the dragged element
+            const fileId = ev.dataTransfer.getData("fileId");
+            
+            // Make an AJAX call to update the file's new folder location
+            $.ajax({
+                url: "/update_file_location",
+                method: "POST",
+                data: {
+                    file_id: fileId,
+                    new_folder: folderPath
+                },
+                success: function(response) {
+                    alert("File moved successfully!");
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error moving file:", error);
+                }
+            });
+        }
+
+        // Function to toggle folder visibility (expand/collapse)
+        function toggleFolder(folderId) {
+            var folder = document.getElementById(folderId);
+            folder.style.display = (folder.style.display === "none") ? "block" : "none";
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>📂 File Explorer</h1>
+        <ul class="tree">
+  
+        </ul>
+
+        <h2>Folders</h2>
+        <ul class="tree">
+            <!-- Iterate through the top-level folder tree -->
+            {% for folder, contents in folder_tree.items() %}
+                <li>
+                    <span class="folder-name" onclick="toggleFolder('folder-{{ loop.index }}')">📁 {{ folder }}</span>
+                    <span class="download-container">
+                        <a href="{{ url_for('download_folder', folder_path=folder) }}" class="download-folder-link">⬇️ Download Folder</a>
+                    </span>
+                    <ul id="folder-{{ loop.index }}" class="file-list" style="display: none;" ondrop="handleDrop(event, '{{ folder }}')" ondragover="allowDrop(event)">
+                        {% for subfolder, subcontents in contents.items() %}
+                            {% if subfolder == "files" %}
+                                {% for file in subcontents %}
+                                    <li id="file-{{ file[0] }}" draggable="true" ondragstart="allowDrag(event)" data-file-id="{{ file[0] }}">
+                                        📄 {{ file[1] }} <span class="file-type">({{ file[2] }})</span>
+                                        <span class="download-container">
+                                            <a href="{{ url_for('download_file', file_id=file[0]) }}" class="download-link">⬇️ Download</a>
+                                        </span>
+                                    </li>
+                                {% endfor %}
+                            {% else %}
+                                <li>
+                                    <span class="folder-name" onclick="toggleFolder('folder-{{ loop.index }}-{{ loop.index0 }}')">📁 {{ subfolder }}</span>
+                                    <span class="download-container">
+                                        <a href="{{ url_for('download_folder', folder_path=folder + '/' + subfolder) }}" class="download-folder-link">⬇️ Download Folder</a>
+                                    </span>
+                                    <ul id="folder-{{ loop.index }}-{{ loop.index0 }}" class="file-list" style="display: none;" ondrop="handleDrop(event, '{{ subfolder }}')" ondragover="allowDrop(event)">
+                                        {% for file in subcontents["files"] %}
+                                            <li id="file-{{ file[0] }}" draggable="true" ondragstart="allowDrag(event)" data-file-id="{{ file[0] }}">
+                                                📄 {{ file[1] }} <span class="file-type">({{ file[2] }})</span>
+                                                <span class="download-container">
+                                                    <a href="{{ url_for('download_file', file_id=file[0]) }}" class="download-link">⬇️ Download</a>
+                                                </span>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>
